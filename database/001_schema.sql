@@ -1,0 +1,24 @@
+-- Preview schema, NOT a complete Final 10C2 migration. Run on a test branch first.
+BEGIN;
+CREATE TABLE IF NOT EXISTS app_users (username text PRIMARY KEY CHECK (username = lower(username)), password_hash text NOT NULL, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS user_access_matrix (username text REFERENCES app_users ON DELETE CASCADE, permission text NOT NULL, access_level text NOT NULL CHECK (access_level IN ('None','View','Edit')), PRIMARY KEY(username, permission));
+CREATE TABLE IF NOT EXISTS app_sessions (token_hash text PRIMARY KEY, username text NOT NULL REFERENCES app_users ON DELETE CASCADE, password_version text NOT NULL, expires_at timestamptz NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON app_sessions(expires_at);
+CREATE TABLE IF NOT EXISTS login_attempts (username text PRIMARY KEY, failures integer NOT NULL DEFAULT 0, window_until timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS products (product_id text PRIMARY KEY, equipment_name text NOT NULL, product_type text NOT NULL DEFAULT '', brand text NOT NULL DEFAULT '', model text NOT NULL DEFAULT '', size_capacity text NOT NULL DEFAULT '', active boolean NOT NULL DEFAULT true);
+CREATE TABLE IF NOT EXISTS work_orders (work_order_id text PRIMARY KEY, work_order_number text NOT NULL UNIQUE, order_type text NOT NULL DEFAULT '', sales_person text NOT NULL DEFAULT '', creation_date date NOT NULL, promise_date date, status text NOT NULL DEFAULT 'Open', active boolean NOT NULL DEFAULT true, row_version bigint NOT NULL DEFAULT 1);
+CREATE TABLE IF NOT EXISTS work_order_lines (line_id text PRIMARY KEY, work_order_id text NOT NULL REFERENCES work_orders, product_id text REFERENCES products, equipment_name text NOT NULL, model text NOT NULL DEFAULT '', brand text NOT NULL DEFAULT '', entry_type text NOT NULL CHECK(entry_type IN ('Bought Out','Fabrication')), planned_qty integer NOT NULL CHECK(planned_qty>0), active boolean NOT NULL DEFAULT true, row_version bigint NOT NULL DEFAULT 1);
+CREATE INDEX IF NOT EXISTS wo_lines_order_idx ON work_order_lines(work_order_id);
+CREATE TABLE IF NOT EXISTS stock_receipts (stock_in_id text PRIMARY KEY, entry_type text NOT NULL CHECK(entry_type IN ('Bought Out','Fabrication')), product_id text NOT NULL REFERENCES products, work_order_line_id text REFERENCES work_order_lines, purchase_date date NOT NULL, active boolean NOT NULL DEFAULT true, row_version bigint NOT NULL DEFAULT 1);
+CREATE TABLE IF NOT EXISTS stock_units (unit_id text PRIMARY KEY, serial text NOT NULL CHECK(length(trim(serial))>0), stock_in_id text NOT NULL REFERENCES stock_receipts, location text NOT NULL, work_order_id text REFERENCES work_orders, active boolean NOT NULL DEFAULT true);
+CREATE UNIQUE INDEX IF NOT EXISTS stock_unit_serial_unique ON stock_units(lower(trim(serial))) WHERE active;
+CREATE INDEX IF NOT EXISTS stock_units_receipt_idx ON stock_units(stock_in_id);
+CREATE INDEX IF NOT EXISTS stock_units_wo_idx ON stock_units(work_order_id);
+CREATE INDEX IF NOT EXISTS stock_receipts_date_idx ON stock_receipts(purchase_date);
+CREATE TABLE IF NOT EXISTS dispatches (stock_out_id text PRIMARY KEY, work_order_id text REFERENCES work_orders, location text NOT NULL, dispatch_date date NOT NULL, dispatch_mode text NOT NULL DEFAULT '', active boolean NOT NULL DEFAULT true);
+CREATE INDEX IF NOT EXISTS dispatch_date_idx ON dispatches(dispatch_date);
+CREATE TABLE IF NOT EXISTS dispatch_units (stock_out_id text REFERENCES dispatches, unit_id text REFERENCES stock_units, active boolean NOT NULL DEFAULT true, PRIMARY KEY(stock_out_id,unit_id));
+CREATE UNIQUE INDEX IF NOT EXISTS one_active_dispatch_per_unit ON dispatch_units(unit_id) WHERE active;
+CREATE TABLE IF NOT EXISTS work_order_pricing (line_id text PRIMARY KEY REFERENCES work_order_lines, purchase_unit_price numeric(15,2) CHECK(purchase_unit_price>=0), selling_unit_price numeric(15,2) CHECK(selling_unit_price>=0));
+CREATE TABLE IF NOT EXISTS audit_log (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, username text NOT NULL, action text NOT NULL, entity_type text NOT NULL, entity_id text NOT NULL DEFAULT '', occurred_at timestamptz NOT NULL DEFAULT now(), details jsonb NOT NULL DEFAULT '{}'::jsonb);
+COMMIT;
