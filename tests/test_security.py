@@ -41,9 +41,7 @@ class PasswordFormatTests(unittest.TestCase):
             self.assertTrue(check_password_hash(h,p))
             self.assertFalse(check_password_hash(h,p+'x'))
             if prefix==b'2b':
-                self.assertTrue(check_password_hash('$2y
-    unittest.main()
-+h[4:],p))
+                self.assertTrue(check_password_hash('$2y$'+h[4:],p))
 
     def test_reject_invalid_bcrypt_and_long_inputs(self):
         p='synthetic test password'
