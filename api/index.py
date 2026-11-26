@@ -37,7 +37,12 @@ def forbidden(e):return jsonify(error=str(e)),403
 def invalid(e):return jsonify(error=str(e)),400
 @app.errorhandler(DatabaseError)
 @app.errorhandler(KeyError)
-def unavailable(e):return jsonify(error='Database unavailable or schema not initialized. No successful transaction confirmed.'),503
+def unavailable(e):
+    # Log only exception type and SQLSTATE; never exception text, DSN or query parameters.
+    app.logger.warning("Database request failed: type=%s sqlstate=%s endpoint=%s",
+                       type(e).__name__, getattr(e,'sqlstate',None) or 'none',
+                       request.endpoint or 'unknown')
+    return jsonify(error='Database unavailable or schema not initialized. No successful transaction confirmed.'),503
 
 def token():
     value=request.headers.get('Authorization','')

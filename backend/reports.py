@@ -80,7 +80,7 @@ def build(cur,key,raw,grants):
     else:
         extra,args=condition(f,'w.work_order_number',"concat_ws(' ',p.equipment_name,p.model,u.serial)",'u.location','r.purchase_date')
         available='NOT EXISTS (SELECT 1 FROM dispatch_units du JOIN dispatches d USING(stock_out_id) WHERE du.unit_id=u.unit_id AND du.active AND d.active)'
-        sql=f'''SELECT u.serial,u.location,w.work_order_number,coalesce(w.status,'Free') status,p.product_id,p.equipment_name,p.product_type,p.brand,p.model,p.size_capacity,r.purchase_date,r.stock_in_id,({available}) available FROM stock_units u JOIN stock_receipts r USING(stock_in_id) JOIN products p USING(product_id) LEFT JOIN work_orders w USING(work_order_id) WHERE u.active AND r.active AND r.entry_type=ANY(%s)'''
+        sql=f'''SELECT u.serial,u.location,w.work_order_number,coalesce(w.status,'Free') status,p.product_id,p.equipment_name,p.product_type,p.brand,p.model,p.size_capacity,r.purchase_date,r.stock_in_id,({available}) available FROM stock_units u JOIN stock_receipts r USING(stock_in_id) JOIN products p USING(product_id) LEFT JOIN work_orders w ON w.work_order_id=u.work_order_id WHERE u.active AND r.active AND r.entry_type=ANY(%s)'''
         if key!='product-movement':sql+=' AND '+available
         units=query(cur,sql+extra+' ORDER BY u.serial',[routes,*args]);count=len(units)
         def age(r):return (today-r['purchase_date']).days
