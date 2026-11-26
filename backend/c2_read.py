@@ -22,7 +22,7 @@ def products(cur,grants,search='',after=''):
     if any(not isinstance(v,str) or len(v)>100 for v in (search,after)):
         raise ValueError('Search or page cursor too long')
     cur.execute("""SELECT product_id AS "productId",equipment_name AS "equipmentName",
-        product_type AS "productType",brand,model,size_capacity AS "sizeCapacity"
+        product_type AS "productType",brand,model,size_capacity AS "sizeCapacity",row_version AS "rowVersion"
         FROM products WHERE active AND product_id>%s
         AND strpos(lower(concat_ws(' ',product_id,equipment_name,brand,model,size_capacity)),lower(%s))>0
         ORDER BY product_id LIMIT 51""",(after,search.strip()))

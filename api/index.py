@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 from backend.db import db
 from backend.auth import login, authorize, digest
 from backend.c2_read import products, dashboard
+from backend import workspace as ws
+from backend.workspace_ui import HTML as WORKSPACE_HTML
+from psycopg.errors import RaiseException
 from backend.reports import build, LABELS, route_access
 from psycopg import Error as DatabaseError
 load_dotenv()
@@ -91,6 +94,54 @@ def c2_dashboard():
         return jsonify(dashboard(c,grants))
 
 @app.get('/')
+@app.get('/workspace')
 @app.get('/api/index')
+def workspace_home():
+    return render_template_string(WORKSPACE_HTML)
+
+@app.get('/api/c2/me')
+def workspace_me():
+    with db() as c:
+        username,grants=authorize(c,token())
+        return jsonify(ws.capabilities(c,username,grants))
+
+@app.get('/api/c2/page')
+def workspace_page():
+    with db() as c:
+        _,grants=authorize(c,token())
+        return jsonify(ws.read_page(c,grants,request.args.get('page',''),request.args))
+
+@app.post('/api/c2/products')
+def workspace_product_write():
+    with db() as c:
+        _,grants=authorize(c,token())
+        return jsonify(ws.product_write(c,token(),grants,request.get_json()))
+
+@app.post('/api/c2/receive-free')
+def workspace_receive():
+    with db() as c:
+        _,grants=authorize(c,token())
+        return jsonify(ws.receive_free(c,token(),grants,request.get_json()))
+
+@app.get('/api/c2/admin/users')
+def workspace_users():
+    with db() as c:
+        username,grants=authorize(c,token())
+        return jsonify(ws.admin_list(c,username,grants,request.args.get('after','')))
+
+@app.post('/api/c2/admin/users')
+def workspace_user_write():
+    with db() as c:
+        username,grants=authorize(c,token())
+        return jsonify(ws.admin_write(c,token(),username,grants,request.get_json()))
+
+@app.errorhandler(RaiseException)
+def workspace_validation(e):
+    message=e.diag.message_primary or ''
+    if message.startswith('C2: '):
+        return jsonify(error=message[4:]),400
+    return unavailable(e)
+
+@app.get('/preview')
 def home():
     return render_template_string('''<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Janshakti | Migration preview</title><style nonce="{{ g.csp_nonce }}">body{font:16px system-ui;max-width:650px;margin:50px auto;padding:20px;color:#193449}input,select,button{font:inherit;padding:10px;margin:5px 0;max-width:100%;box-sizing:border-box}label{display:block}button{cursor:pointer}#msg{white-space:pre-wrap}</style><h1>Janshakti — report migration preview</h1><p>Read-only proof of concept. Not the original production UI. Do not use for stock or work-order operations.</p><form id="login"><label>Username <input name="username" required autocomplete="username"></label><label>Password <input name="password" type="password" required autocomplete="current-password"></label><button>Sign in</button></form><form id="report" hidden><label>Report <select name="key" required></select></label><label>Work Order <input name="workOrder"></label><label>Product / Model / Serial <input name="product"></label><label>Location <input name="location"></label><label>From <input name="from" type="date"></label><label>To <input name="to" type="date"></label><button>Download Excel</button><button type="button" id="logout">Sign out</button></form><section id="c2read" hidden><hr><h2>Operational migration — read-only test</h2><button id="dashbtn" type="button">Load dashboard</button><div id="dashout"></div><form id="productsearch"><label>Product search <input name="q" maxlength="100"></label><button>Search products</button><button id="nextproducts" type="button" hidden>Next page</button></form><div id="productout"></div></section><p id="msg" role="status"></p><script nonce="{{ g.csp_nonce }}">let token='';const login=document.getElementById('login'),report=document.getElementById('report'),msg=document.getElementById('msg');async function call(url,opt={}){let r=await fetch(url,{...opt,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}});if(!r.ok){let e=await r.json().catch(()=>({}));throw Error(e.error||'Request failed');}return r}login.onsubmit=async e=>{e.preventDefault();try{let r=await call('/api/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(login)))});token=(await r.json()).token;login.reset();let c=await (await call('/api/reports')).json();report.elements.key.replaceChildren(...Object.entries(c).map(([k,v])=>new Option(v,k)));login.hidden=true;report.hidden=false;document.getElementById('c2read').hidden=false;msg.textContent='Signed in. Only permitted reports are displayed.'}catch(e){msg.textContent=e.message}};report.onsubmit=async e=>{e.preventDefault();let btn=report.querySelector('button');btn.disabled=true;try{let f=Object.fromEntries(new FormData(report)),key=f.key;delete f.key;msg.textContent='Preparing report...';let r=await call('/api/reports/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify(f)}),url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download=(r.headers.get('Content-Disposition')||'').match(/filename="?([^";]+)/)?.[1]||'Janshakti.xlsx';a.textContent='Click here if automatic download did not start';msg.replaceChildren(a);a.click();setTimeout(()=>URL.revokeObjectURL(url),300000)}catch(e){msg.textContent=e.message}finally{btn.disabled=false}};document.getElementById('logout').onclick=async()=>{try{await call('/api/logout',{method:'POST'})}finally{token='';report.hidden=true;document.getElementById('c2read').hidden=true;document.getElementById('dashout').replaceChildren();document.getElementById('productout').replaceChildren();document.getElementById('productsearch').reset();document.getElementById('nextproducts').hidden=true;login.hidden=false;msg.textContent='Signed out'}};const dashout=document.getElementById('dashout'),productout=document.getElementById('productout'),ps=document.getElementById('productsearch'),nextbtn=document.getElementById('nextproducts');let cursor='',lastQuery='';function line(parent,value){let p=document.createElement('p');p.textContent=value;parent.append(p)}document.getElementById('dashbtn').onclick=async()=>{let session=token;dashout.textContent='Loading...';try{let d=await(await call('/api/c2/dashboard')).json();if(token!==session)return;dashout.replaceChildren();line(dashout,'On hand: '+d.physical.qty+' | Free: '+d.free.qty+' | Engaged: '+d.engaged.qty+' | Critical free: '+d.critical.qty);for(let row of d.byLocation)line(dashout,row.location+': '+row.freeQty+' free, '+row.engagedQty+' engaged');for(let row of d.aging)line(dashout,row.label+': '+row.free+' free, '+row.engaged+' engaged')}catch(e){if(token===session)dashout.textContent=e.message}};async function loadProducts(after){let session=token;nextbtn.hidden=true;productout.textContent='Loading...';try{let d=await(await call('/api/c2/products?'+new URLSearchParams({q:lastQuery,after}))).json();if(token!==session)return;productout.replaceChildren();if(!d.products.length)line(productout,'No matching active products');for(let p of d.products)line(productout,[p.productId,p.equipmentName,p.brand,p.model,p.sizeCapacity].join(' | '));cursor=d.next||'';nextbtn.hidden=!cursor}catch(e){if(token===session)productout.textContent=e.message}}ps.onsubmit=e=>{e.preventDefault();lastQuery=ps.elements.q.value;loadProducts('')};nextbtn.onclick=()=>loadProducts(cursor);</script></html>''')

@@ -16,6 +16,8 @@ ALLOWED = {
     'database/004_c2_schema_expansion.sql', 'database/005_verify_c2_schema.sql',
     'database/C2_SCHEMA_GUIDE.md', 'database/006_seed_demo_inventory.sql',
     'backend/c2_read.py', 'tests/test_c2_read.py',
+    'backend/workspace.py', 'backend/workspace_ui.py', 'tests/test_workspace.py',
+    'database/007_workspace_permissions_and_writes.sql', 'database/WORKSPACE_TEST_GUIDE.md',
     'legacy/Index.html', 'legacy/02_AuthenticationAndAPI.gs',
     'legacy/03_TrackerAndAccess.gs', 'legacy/08_ExcelReports.gs', 'legacy/13_ReportCatalog.gs',
     'tests/test_reports.py', 'tests/test_security.py',
