@@ -42,7 +42,7 @@ INSERT INTO dispatches(stock_out_id,work_order_id,location,dispatch_date,dispatc
 VALUES ('DEMO-D01','DEMO-W02','Bapu Nagar showroom',current_date-2,'Complete');
 INSERT INTO dispatch_units(stock_out_id,unit_id) VALUES ('DEMO-D01','DEMO-U06');
 INSERT INTO work_order_pricing(line_id,purchase_unit_price,selling_unit_price,purchase_set,selling_set)
-VALUES ('DEMO-L01',8000,12000,true),('DEMO-L02',15000,22000,true);
+VALUES ('DEMO-L01',8000,12000,true,true),('DEMO-L02',15000,22000,true,true);
 -- Enable only read access to the new test pages for existing da. Preserve Edit.
 INSERT INTO user_access_matrix(username,permission,access_level)
 VALUES ('da','Dashboard','View'),('da','Product Master','View')
