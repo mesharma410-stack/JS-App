@@ -15,6 +15,9 @@ After deploying the bcrypt-compatible backend, authorized database owners can us
 ## C2 schema expansion (test branch only)
 The full original source has been recovered privately. An additive schema foundation is available in [database/C2_SCHEMA_GUIDE.md](database/C2_SCHEMA_GUIDE.md). Execute 004 and 005 manually in the existing test database as owner; do not rerun 001/002 or change Vercel configuration just for this migration. The preview is still read-only; full C2 services and UI are not implemented.
 
+## Synthetic report and read-only C2 API milestone
+After 004/005 on the test child branch, run 006_seed_demo_inventory.sql once as owner on an empty synthetic inventory database. It refuses nonempty inventory tables and does not modify passwords. The da account gains Dashboard and Product Master View (preserving Edit). Check dashboard counts 5 physical, 2 free, 3 engaged and 2 critical free; search DEMO products and recheck Excel. This is a report fixture, not valid full operational history. New authenticated endpoints /api/c2/dashboard and /api/c2/products require page and route grants, omit financial fields, and perform no mutations. Original UI and operational write services remain pending.
+
 ## Architecture and caveats
 Same-origin Flask API, short Psycopg connections to Neon pooled endpoint, PostgreSQL permission and session tables, direct binary XLSX response (no Google Drive, base64, or temp file). Larger than 4 MB is rejected with a filter prompt; large-report object storage is not implemented. No persistent background worker. Database row locks, transaction-level idempotency and revision checks must be implemented for operational writes before release. `legacy/Index.html` is unchanged, not a functional standalone UI; `api/index.py` serves an explicitly separate preview page. The proposed schema is not an authoritative mapping of the missing source.
 
