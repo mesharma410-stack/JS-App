@@ -12,6 +12,7 @@ ALLOWED = {
     'backend/__init__.py', 'backend/auth.py', 'backend/db.py', 'backend/reports.py',
     'database/001_schema.sql', 'database/002_runtime_permissions.sql',
     'database/create_user.py', 'database/grant_example.sql',
+    'database/003_reset_app_password.sql',
     'legacy/Index.html', 'legacy/02_AuthenticationAndAPI.gs',
     'legacy/03_TrackerAndAccess.gs', 'legacy/08_ExcelReports.gs', 'legacy/13_ReportCatalog.gs',
     'tests/test_reports.py', 'tests/test_security.py',

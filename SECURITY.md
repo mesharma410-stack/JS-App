@@ -13,6 +13,7 @@ Public source code is acceptable only with company authorization. Real records a
 Use a separate test project or isolated branch from an EMPTY database. Do not clone a branch with real records into public testing.
 Execute 001_schema.sql as the owner. Create a new role js_app_runtime with a generated password; execute 002_runtime_permissions.sql as the owner and verify effective permissions, including inherited privileges and public grants.
 Use the pooled runtime URL with SSL required. Keep owner/admin URL only on a trusted local machine as ADMIN_DATABASE_URL. Use database/create_user.py locally and manage permissions via the SQL editor.
+An authorized test database owner can reset an existing application account using database/003_reset_app_password.sql after the bcrypt-compatible release is deployed. Use a unique private password of 12–72 UTF-8 bytes and never save filled-in SQL in Git. SQL Editor can retain query history; restrict access. Password resets clear failures and sessions without changing grants. Do not give the runtime role user administration permissions.
 Never give the runtime role ownership, schema creation, or access to unrelated schemas or databases. Do not grant new permissions without reviewing the API.
 
 ## Vercel
