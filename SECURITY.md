@@ -16,6 +16,8 @@ Use the pooled runtime URL with SSL required. Keep owner/admin URL only on a tru
 An authorized test database owner can reset an existing application account using database/003_reset_app_password.sql after the bcrypt-compatible release is deployed. Use a unique private password of 12–72 UTF-8 bytes and never save filled-in SQL in Git. SQL Editor can retain query history; restrict access. Password resets clear failures and sessions without changing grants. Do not give the runtime role user administration permissions.
 Never give the runtime role ownership, schema creation, or access to unrelated schemas or databases. Do not grant new permissions without reviewing the API.
 
+The C2 schema foundation (004) introduces new tables without new runtime grants. Verify effective permissions with 005; old table SELECT grants include added columns. Do not import business data before restricted column/service access and financial redaction are reviewed.
+
 ## Vercel
 A private personal GitHub repo can deploy; public is not mandatory. Hobby is personal/non-commercial only.
 Create DATABASE_URL as a server-side Secret, never NEXT_PUBLIC_ or VITE_ variables.

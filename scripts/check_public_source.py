@@ -13,6 +13,8 @@ ALLOWED = {
     'database/001_schema.sql', 'database/002_runtime_permissions.sql',
     'database/create_user.py', 'database/grant_example.sql',
     'database/003_reset_app_password.sql',
+    'database/004_c2_schema_expansion.sql', 'database/005_verify_c2_schema.sql',
+    'database/C2_SCHEMA_GUIDE.md',
     'legacy/Index.html', 'legacy/02_AuthenticationAndAPI.gs',
     'legacy/03_TrackerAndAccess.gs', 'legacy/08_ExcelReports.gs', 'legacy/13_ReportCatalog.gs',
     'tests/test_reports.py', 'tests/test_security.py',
