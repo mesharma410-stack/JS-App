@@ -21,6 +21,9 @@ After 004/005 on the test child branch, run 006_seed_demo_inventory.sql once as 
 ## Functional workspace test milestone
 After 006, run [007_workspace_permissions_and_writes.sql](database/007_workspace_permissions_and_writes.sql) once on the synthetic child branch. See [workspace testing guide](database/WORKSPACE_TEST_GUIDE.md). The new /workspace (also /) has dashboard, product edits, free Bought Out receipts, stock/work-order read pages, reports and controlled operator administration. /preview preserves the prior report preview. Original CSS, other operational workflows and production acceptance remain pending.
 
+## GS Gallery parity milestone
+See [C2 parity baseline](database/C2_PARITY_BASELINE.md). The workspace now includes the original palette, branded login, navy navigation and an editable original Work Order XLSX preview with model matching and cell-level validation. Upload never saves. No new SQL for this milestone; the earlier 007 still must be applied and tested. Full operational and visual parity remains pending.
+
 ## Architecture and caveats
 Same-origin Flask API, short Psycopg connections to Neon pooled endpoint, PostgreSQL permission and session tables, direct binary XLSX response (no Google Drive, base64, or temp file). Larger than 4 MB is rejected with a filter prompt; large-report object storage is not implemented. No persistent background worker. Database row locks, transaction-level idempotency and revision checks must be implemented for operational writes before release. `legacy/Index.html` is unchanged, not a functional standalone UI; `api/index.py` serves an explicitly separate preview page. The proposed schema is not an authoritative mapping of the missing source.
 

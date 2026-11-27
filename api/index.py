@@ -6,6 +6,7 @@ from backend.db import db
 from backend.auth import login, authorize, digest
 from backend.c2_read import products, dashboard
 from backend import workspace as ws
+from backend import wo_import
 from backend.workspace_ui import HTML as WORKSPACE_HTML
 from psycopg.errors import RaiseException
 from backend.reports import build, LABELS, route_access
@@ -98,6 +99,26 @@ def c2_dashboard():
 @app.get('/api/index')
 def workspace_home():
     return render_template_string(WORKSPACE_HTML)
+
+@app.post('/api/c2/wo-upload')
+def wo_upload():
+    request.max_content_length=4_100_000
+    with db() as c:
+        _,grants=authorize(c,token())
+        if not ws.can(grants,'Work Orders'):
+            raise PermissionError('ACCESS_DENIED: Work Orders required')
+        file=request.files.get('file')
+        if not file or not (file.filename or '').lower().endswith('.xlsx'):
+            raise ValueError('Choose the original .xlsx workbook.')
+        data=wo_import.read_original(file.stream.read(wo_import.MAX_FILE+1))
+        return jsonify(wo_import.validate(c,grants,data))
+
+@app.post('/api/c2/wo-validate')
+def wo_validate():
+    request.max_content_length=1_000_000
+    with db() as c:
+        _,grants=authorize(c,token())
+        return jsonify(wo_import.validate(c,grants,request.get_json()))
 
 @app.get('/api/c2/me')
 def workspace_me():
