@@ -18,6 +18,7 @@ ALLOWED = {
     'backend/c2_read.py', 'tests/test_c2_read.py',
     'backend/workspace.py', 'backend/workspace_ui.py', 'tests/test_workspace.py',
     'backend/wo_import.py', 'tests/test_wo_import.py', 'database/C2_PARITY_BASELINE.md',
+    'database/008_wo_identity_and_v1.sql', 'database/WORK_ORDER_V1_TEST_GUIDE.md', 'tests/test_wo_save_gate.py',
     'database/007_workspace_permissions_and_writes.sql', 'database/WORKSPACE_TEST_GUIDE.md',
     'legacy/Index.html', 'legacy/02_AuthenticationAndAPI.gs',
     'legacy/03_TrackerAndAccess.gs', 'legacy/08_ExcelReports.gs', 'legacy/13_ReportCatalog.gs',

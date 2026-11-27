@@ -120,6 +120,23 @@ def wo_validate():
         _,grants=authorize(c,token())
         return jsonify(wo_import.validate(c,grants,request.get_json()))
 
+@app.post('/api/c2/wo-save')
+def wo_save():
+    request.max_content_length=1_000_000
+    with db() as c:
+        _,grants=authorize(c,token())
+        return jsonify(wo_import.save_new(c,token(),grants,request.get_json()))
+
+@app.get('/api/c2/wo-versions')
+def wo_versions():
+    with db() as c:
+        _,grants=authorize(c,token())
+        try:
+            version=int(request.args.get('version','0'))
+        except ValueError:
+            raise ValueError('Invalid version.')
+        return jsonify(wo_import.versions(c,token(),grants,request.args.get('number','').strip(),version))
+
 @app.get('/api/c2/me')
 def workspace_me():
     with db() as c:

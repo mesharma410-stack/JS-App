@@ -22,7 +22,9 @@ def require_admin(cur,username,grants):
 
 def capabilities(cur,username,grants):
     routes=[r for r in ('Bought Out','Fabrication') if can(grants,'Route: '+r)]
-    return {'username':username,'grants':grants,'admin':admin_allowed(cur,username,grants),
+    cur.execute("SELECT to_regprocedure('public.c2_save_new_wo(text,jsonb)') IS NOT NULL AS ready")
+    wo_ready=cur.fetchone()['ready']
+    return {'username':username,'grants':grants,'admin':admin_allowed(cur,username,grants),'woSave':wo_ready,
             'routes':routes,'permissions':PERMISSIONS}
 
 def text(data,key,limit=100,required=False):

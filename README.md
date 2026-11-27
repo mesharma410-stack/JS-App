@@ -24,6 +24,9 @@ After 006, run [007_workspace_permissions_and_writes.sql](database/007_workspace
 ## GS Gallery parity milestone
 See [C2 parity baseline](database/C2_PARITY_BASELINE.md). The workspace now includes the original palette, branded login, navy navigation and an editable original Work Order XLSX preview with model matching and cell-level validation. Upload never saves. No new SQL for this milestone; the earlier 007 still must be applied and tested. Full operational and visual parity remains pending.
 
+## Work Order V1 foundation
+After 007 passes, [008](database/008_wo_identity_and_v1.sql) adds separate fabrication identities, new order Version 1 creation and scoped saved-version reading. Follow [test guide](database/WORK_ORDER_V1_TEST_GUIDE.md). Original draft upload never saves by itself. Revision edits and full original workflows remain pending.
+
 ## Architecture and caveats
 Same-origin Flask API, short Psycopg connections to Neon pooled endpoint, PostgreSQL permission and session tables, direct binary XLSX response (no Google Drive, base64, or temp file). Larger than 4 MB is rejected with a filter prompt; large-report object storage is not implemented. No persistent background worker. Database row locks, transaction-level idempotency and revision checks must be implemented for operational writes before release. `legacy/Index.html` is unchanged, not a functional standalone UI; `api/index.py` serves an explicitly separate preview page. The proposed schema is not an authoritative mapping of the missing source.
 

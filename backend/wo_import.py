@@ -79,8 +79,10 @@ class Master:
             else:
                 matches=[]
                 if n and m and v:
-                    for t in self.rows:
-                        if words(t['brand'])!=v: continue
+                    vendor_rows=[t for t in self.rows if words(t['brand'])==v]
+                    if len(vendor_rows)>500:
+                        return None,'Too many possible master rows for automatic matching. Select the exact model.',''
+                    for t in vendor_rows:
                         k=model_key(t['model'])
                         if similarity(n,words(t['description']))>=0.86 and (similarity(m,k)>=0.78 or (len(m)>=3 and k.startswith(m))):
                             matches.append(t)
@@ -231,3 +233,39 @@ def validate(cur,grants,data):
         items.append(x)
     return {'ok':not errors,'meta':meta,'items':items,'errors':errors,'corrections':corrections,
             'message':str(len(items))+' items reviewed; '+str(len(errors))+' blocking issues. Nothing saved.'}
+
+
+def save_new(cur,token,grants,data):
+    from .auth import digest
+    import json
+    if grants.get('Work Orders')!='Edit':
+        raise PermissionError('ACCESS_DENIED: Work Orders Edit required')
+    result=validate(cur,grants,data)
+    if result['errors'] or result['corrections']:
+        raise ValueError('Validate items and review all corrections before saving.')
+    meta=result['meta']
+    meta['workOrderType']=meta['workOrderType'] or 'Project'
+    if meta['workOrderType'] not in ('Project','Retail','Other'):
+        raise ValueError('Invalid Work Order type.')
+    if not meta['quoteReference']:
+        raise ValueError('Quote Reference is required by the C2 save workflow.')
+    try:
+        start=date.fromisoformat(meta['workOrderDate'])
+        if meta['deliveryDate'] and date.fromisoformat(meta['deliveryDate'])<start:
+            raise ValueError()
+    except ValueError:
+        raise ValueError('Enter a valid Work Order date and delivery date on or after it.')
+    for item in result['items']:
+        if grants.get('Route: '+item['entryType'])!='Edit':
+            raise PermissionError('ACCESS_DENIED: Edit access required for every material route.')
+    cur.execute("SELECT public.c2_save_new_wo(%s,%s::jsonb) AS result",
+        (digest(token),json.dumps({'meta':meta,'items':result['items']},ensure_ascii=False)))
+    return cur.fetchone()['result']
+
+def versions(cur,token,grants,number,version):
+    from .auth import digest
+    if not can(grants,'Work Orders'): raise PermissionError('ACCESS_DENIED: Work Orders required')
+    if not 1<=len(number)<=110 or not isinstance(version,int) or not 0<=version<=2147483647:
+        raise ValueError('Enter a valid Work Order number and version.')
+    cur.execute("SELECT public.c2_read_wo_versions(%s,%s,%s) AS result",(digest(token),number,version))
+    return cur.fetchone()['result']

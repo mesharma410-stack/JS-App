@@ -27,3 +27,7 @@ Source-of-truth: supplied complete FINAL_10_C2_HOLD_REPORTS_FIXED archive (23 GS
 | Settings / SalesPersons / AuditLog / 00_System_Map | app_settings / sales_persons / audit_log / database metadata | config, roster, audit parity and data reconciliation pending |
 
 Do not force fabrication IDs into Products merely to satisfy the receipt FK. Add a route-specific relational FK and check before enabling fabrication receipt writes. Preserve stable line IDs, explicit allocation, quantity/serial invariants and revision locks. Full source validation (including locked existing rows, saved IDs, required quote reference, exact source workbook conventions, versioning and all operational imports) still needs the write-phase port. The draft validator is not the final save validator. No real company data or screenshots in repository. Use synthetic test branch only. No production handover until full workflow, authorization, transaction, import, export and load tests pass.
+
+
+## Follow-on V1 foundation
+008 adds distinct fabrication identity, a transactional new-order V1 save and route-scoped snapshot view. This is not full revision or inventory workflow parity; see WORK_ORDER_V1_TEST_GUIDE.md. Live execution is pending.
