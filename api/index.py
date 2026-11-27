@@ -6,10 +6,10 @@ from backend.db import db
 from backend.auth import login, authorize, digest
 from backend.c2_read import products, dashboard
 from backend import workspace as ws
-from backend import wo_import
+from backend import wo_import, status_workflow
 from backend.workspace_ui import HTML as WORKSPACE_HTML
 from psycopg.errors import RaiseException
-from backend.reports import build, LABELS, route_access
+from backend.reports import collect, workbook, LABELS, route_access
 from psycopg import Error as DatabaseError
 load_dotenv()
 app=Flask(__name__)
@@ -79,7 +79,8 @@ def catalog():
 @app.post('/api/reports/<key>')
 def report(key):
     with db() as c:
-        _,g=authorize(c,token());file,name=build(c,key,request.get_json(),g)
+        _,g=authorize(c,token());tabs,name=collect(c,key,request.get_json(),g)
+    file=workbook(tabs)
     if file.getbuffer().nbytes>4_000_000:raise ValueError('Report exceeds safe download size. Narrow the filters.')
     return send_file(file,download_name=name,as_attachment=True,mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 @app.get('/api/c2/products')
@@ -136,6 +137,18 @@ def wo_versions():
         except ValueError:
             raise ValueError('Invalid version.')
         return jsonify(wo_import.versions(c,token(),grants,request.args.get('number','').strip(),version))
+
+@app.get('/api/c2/status')
+def status_list():
+    with db() as c:
+        _,grants=authorize(c,token())
+        return jsonify(status_workflow.status_read(c,token(),grants,request.args))
+
+@app.post('/api/c2/status')
+def status_change():
+    with db() as c:
+        _,grants=authorize(c,token())
+        return jsonify(status_workflow.status_write(c,token(),grants,request.get_json()))
 
 @app.get('/api/c2/me')
 def workspace_me():

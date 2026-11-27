@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 from collections import defaultdict
 from io import BytesIO
 from openpyxl import Workbook
+from openpyxl.cell import WriteOnlyCell
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from .auth import can
@@ -48,19 +49,30 @@ def condition(f,wo,product,location,day):
     return (' AND '+' AND '.join(clauses) if clauses else ''),values
 
 def workbook(tabs):
-    book=Workbook();book.remove(book.active)
+    # Streaming worksheet writer: no full in-memory cell graph.
+    book=Workbook(write_only=True)
     for name,headers,rows in tabs:
-        ws=book.create_sheet(name);ws.append(headers);ws.freeze_panes='A2'
-        for c in ws[1]: c.font=Font(bold=True,color='FFFFFF');c.fill=PatternFill('solid',fgColor='17364D')
+        ws=book.create_sheet(name)
+        ws.freeze_panes='A2'
+        for i,h in enumerate(headers,1):
+            ws.column_dimensions[get_column_letter(i)].width=min(40,max(16,len(h)+2))
+        head=[]
+        for h in headers:
+            c=WriteOnlyCell(ws,value=h);c.font=Font(bold=True,color='FFFFFF');c.fill=PatternFill('solid',fgColor='17364D')
+            head.append(c)
+        ws.append(head)
+        count=1
         for row in rows:
-            ws.append(list(row))
-            for c in ws[ws.max_row]:
-                if isinstance(c.value,str): c.data_type='s' # never execute formula text
-        ws.auto_filter.ref=ws.dimensions
-        for i,h in enumerate(headers,1):ws.column_dimensions[get_column_letter(i)].width=min(40,max(16,len(h)+2))
+            values=[]
+            for value in row:
+                if isinstance(value,str):
+                    c=WriteOnlyCell(ws,value=value);c.data_type='s';values.append(c)
+                else:values.append(value)
+            ws.append(values);count+=1
+        ws.auto_filter.ref=f'A1:{get_column_letter(len(headers))}{count}'
     out=BytesIO();book.save(out);out.seek(0);return out
 
-def build(cur,key,raw,grants):
+def collect(cur,key,raw,grants):
     routes=route_access(grants,key); f=validate_filters(raw); tabs=[]; units=[]; count=0
     today=datetime.now(ZoneInfo('Asia/Kolkata')).date()
     def tab(n,h,r):tabs.append((n,h,list(r)))
@@ -72,15 +84,15 @@ def build(cur,key,raw,grants):
             return [r[k] for k in ('work_order_number','creation_date','status','order_type','sales_person','line_id','equipment_name','entry_type','planned_qty','purchase_unit_price','selling_unit_price')]+[q*b if b is not None else None,q*s if s is not None else None,q*(s-b) if complete else None,'Complete' if complete else 'Missing purchase or selling price']
         tab('Estimated Margins' if key=='margin-analysis' else 'Purchase Analysis',['Work Order','Created','Status','Order Type','Sales Executive','Line ID','Equipment','Material Type','Qty','Purchase Unit Cost','Selling Unit Price','Total Purchase','Total Selling','Calculated Gross Profit','Costing Status'],map(line,rows))
     elif key=='dispatch-history':
-        extra,args=condition(f,'w.work_order_number',"concat_ws(' ',p.equipment_name,p.model,u.serial)",'d.location','d.dispatch_date')
-        rows=query(cur,'''SELECT d.stock_out_id,d.dispatch_date,w.work_order_number,coalesce(w.status,'Free') status,d.location,d.dispatch_mode,u.serial FROM dispatches d JOIN dispatch_units du USING(stock_out_id) JOIN stock_units u USING(unit_id) JOIN stock_receipts r USING(stock_in_id) JOIN products p USING(product_id) LEFT JOIN work_orders w ON w.work_order_id=d.work_order_id WHERE d.active AND du.active AND u.active AND r.active AND r.entry_type=ANY(%s)'''+extra+' ORDER BY d.stock_out_id,u.serial',[routes,*args]); groups={}
+        extra,args=condition(f,'w.work_order_number',"concat_ws(' ',coalesce(r.equipment_name,p.equipment_name),coalesce(r.model,p.model),u.serial)",'d.location','d.dispatch_date')
+        rows=query(cur,'''SELECT d.stock_out_id,d.dispatch_date,w.work_order_number,coalesce(w.status,'Free') status,d.location,d.dispatch_mode,u.serial FROM dispatches d JOIN dispatch_units du USING(stock_out_id) JOIN stock_units u USING(unit_id) JOIN stock_receipts r USING(stock_in_id) LEFT JOIN products p ON p.product_id=r.product_id LEFT JOIN work_orders w ON w.work_order_id=d.work_order_id WHERE d.active AND du.active AND u.active AND r.active AND r.entry_type=ANY(%s)'''+extra+' ORDER BY d.stock_out_id,u.serial',[routes,*args]); groups={}
         for r in rows:
             k=r['stock_out_id']; g=groups.setdefault(k,([r[x] for x in ('stock_out_id','dispatch_date','work_order_number','status','location','dispatch_mode')],[]));g[1].append(r['serial'])
         count=len(groups);tab('Dispatch History',['Dispatch ID','Dispatch Date','Work Order','WO Status','Location','Mode','Serial Numbers','Serial Count'],(a+[', '.join(b),len(b)] for a,b in groups.values()))
     else:
-        extra,args=condition(f,'w.work_order_number',"concat_ws(' ',p.equipment_name,p.model,u.serial)",'u.location','r.purchase_date')
+        extra,args=condition(f,'w.work_order_number',"concat_ws(' ',coalesce(r.equipment_name,p.equipment_name),coalesce(r.model,p.model),u.serial)",'u.location','r.purchase_date')
         available='NOT EXISTS (SELECT 1 FROM dispatch_units du JOIN dispatches d USING(stock_out_id) WHERE du.unit_id=u.unit_id AND du.active AND d.active)'
-        sql=f'''SELECT u.serial,u.location,w.work_order_number,coalesce(w.status,'Free') status,p.product_id,p.equipment_name,p.product_type,p.brand,p.model,p.size_capacity,r.purchase_date,r.stock_in_id,({available}) available FROM stock_units u JOIN stock_receipts r USING(stock_in_id) JOIN products p USING(product_id) LEFT JOIN work_orders w ON w.work_order_id=u.work_order_id WHERE u.active AND r.active AND r.entry_type=ANY(%s)'''
+        sql=f'''SELECT u.serial,u.location,w.work_order_number,coalesce(w.status,'Free') status,coalesce(r.product_id,r.work_order_line_id) AS product_id,coalesce(r.equipment_name,p.equipment_name,'') AS equipment_name,coalesce(r.model,p.model,'') AS model,coalesce(r.brand,p.brand,'') AS brand,coalesce(r.product_type,p.product_type,'') AS product_type,coalesce(r.size_capacity,p.size_capacity,'') AS size_capacity,r.purchase_date,r.stock_in_id,({available}) available FROM stock_units u JOIN stock_receipts r USING(stock_in_id) LEFT JOIN products p ON p.product_id=r.product_id LEFT JOIN work_orders w ON w.work_order_id=u.work_order_id WHERE u.active AND r.active AND r.entry_type=ANY(%s)'''
         if key!='product-movement':sql+=' AND '+available
         units=query(cur,sql+extra+' ORDER BY u.serial',[routes,*args]);count=len(units)
         def age(r):return (today-r['purchase_date']).days
@@ -107,4 +119,8 @@ def build(cur,key,raw,grants):
             for r in units:groups[(r['product_id'],r['location'])].append(r)
             count=len(groups);tab('Product Movement',['Product ID','Equipment','Brand','Model','Location','Received Units','Dispatched Units','On Hand Units'],([k[0],v[0]['equipment_name'],v[0]['brand'],v[0]['model'],k[1],len(v),sum(not r['available'] for r in v),sum(r['available'] for r in v)] for k,v in groups.items()))
     tab('Report Summary',['Metric','Value'],[['Report',LABELS[key]],['Generated',today.isoformat()],['Main report rows',count],['Financial data','Management only' if key in FIN else 'Excluded'],['Mode','Migration preview; read-only']]);tab('Applied Filters',['Filter','Value'],[(k,v or 'All') for k,v in f.items()]);tab('Read Me',['Topic','Explanation'],[['Source','Neon PostgreSQL migration preview'],['Editing','No operational changes supported in preview'],['Blank result','No matching imported data']])
-    return workbook(tabs),f'Janshakti_{key}_{today.isoformat()}.xlsx'
+    return tabs,f'Janshakti_{key}_{today.isoformat()}.xlsx'
+
+def build(cur,key,raw,grants):
+    tabs,name=collect(cur,key,raw,grants)
+    return workbook(tabs),name

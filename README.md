@@ -27,6 +27,9 @@ See [C2 parity baseline](database/C2_PARITY_BASELINE.md). The workspace now incl
 ## Work Order V1 foundation
 After 007 passes, [008](database/008_wo_identity_and_v1.sql) adds separate fabrication identities, new order Version 1 creation and scoped saved-version reading. Follow [test guide](database/WORK_ORDER_V1_TEST_GUIDE.md). Original draft upload never saves by itself. Revision edits and full original workflows remain pending.
 
+## C2 status and bounded report milestone
+After 007 and 008 are verified, apply [009](database/009_status_workflow_and_indexes.sql) on the synthetic branch. See [acceptance guide](database/STATUS_WORKFLOW_TEST_GUIDE.md). Status request/approval/release code and product-lock protection are present; future workflow guards and live acceptance remain pending. Excel serialization uses write-only worksheets outside the database transaction. Do not launch commercially on Hobby.
+
 ## Architecture and caveats
 Same-origin Flask API, short Psycopg connections to Neon pooled endpoint, PostgreSQL permission and session tables, direct binary XLSX response (no Google Drive, base64, or temp file). Larger than 4 MB is rejected with a filter prompt; large-report object storage is not implemented. No persistent background worker. Database row locks, transaction-level idempotency and revision checks must be implemented for operational writes before release. `legacy/Index.html` is unchanged, not a functional standalone UI; `api/index.py` serves an explicitly separate preview page. The proposed schema is not an authoritative mapping of the missing source.
 
